@@ -77,7 +77,12 @@ def _quiet(fn):
 
 def _api_client():
     from webull.core.client import ApiClient
-    client = ApiClient(APP_KEY, APP_SECRET, REGION_ID)
+    # token_check_duration_seconds=0 tells the SDK not to block waiting for 2FA
+    # inside Claude Desktop — the token must already be initialised via init_token.bat.
+    client = ApiClient(
+        APP_KEY, APP_SECRET, REGION_ID,
+        token_check_duration_seconds=0,
+    )
     if API_ENDPOINT:
         client.add_endpoint(REGION_ID, API_ENDPOINT)
     return client
