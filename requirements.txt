@@ -1,5 +1,8 @@
 Flask>=3.0.0
 python-dotenv>=1.0.0
-webull-openapi-python-sdk>=2.0.0
 mcp>=1.0.0
 keyring>=25.0.0
+# Individual Webull SDK modules (HTTP only — avoids the grpcio build dependency)
+webull-python-sdk-core
+webull-python-sdk-trade
+webull-python-sdk-mdata
