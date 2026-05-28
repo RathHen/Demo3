@@ -18,9 +18,29 @@ if not os.path.exists(server_path):
     print("Run this from the Demo3 project folder.")
     sys.exit(1)
 
-python_cmd = shutil.which("python") or shutil.which("python3")
-if not python_cmd:
-    print("ERROR: python not found on PATH. Install Python 3.8+ first.")
+# Prefer Python 3.13 explicitly — the Webull SDK has pre-built wheels for it.
+# Falls back to whatever python is on PATH if 3.13 isn't found.
+import subprocess
+
+def _find_python():
+    for candidate in ["py -3.13", "python3.13"]:
+        parts = candidate.split()
+        try:
+            result = subprocess.run(parts + ["--version"], capture_output=True, text=True)
+            if result.returncode == 0 and "3.13" in result.stdout:
+                # For "py -3.13", the command Claude Desktop needs is "py" with args ["-3.13", script]
+                if parts[0] == "py":
+                    return "py", ["-3.13"]
+                return parts[0], []
+        except FileNotFoundError:
+            continue
+    # Fall back to whatever python is available
+    cmd = shutil.which("python") or shutil.which("python3")
+    return cmd, []
+
+python_exe, python_prefix_args = _find_python()
+if not python_exe:
+    print("ERROR: python not found on PATH. Install Python 3.13 from python.org first.")
     sys.exit(1)
 
 os.makedirs(config_dir, exist_ok=True)
@@ -33,8 +53,8 @@ else:
 
 config.setdefault("mcpServers", {})
 config["mcpServers"]["webull"] = {
-    "command": python_cmd,
-    "args": [server_path],
+    "command": python_exe,
+    "args": python_prefix_args + [server_path],
 }
 
 with open(config_file, "w", encoding="utf-8") as f:
@@ -45,7 +65,7 @@ print("Done! Claude Desktop is now configured.")
 print()
 print(f"  Config : {config_file}")
 print(f"  Server : {server_path}")
-print(f"  Python : {python_cmd}")
+print(f"  Python : {python_exe} {' '.join(python_prefix_args)}")
 print()
 print("Next steps:")
 print("  1. Make sure your .env file has WEBULL_APP_KEY, WEBULL_APP_SECRET,")
