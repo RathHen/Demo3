@@ -56,6 +56,18 @@ except OSError:
     pass
 os.environ["WEBULL_OPENAPI_TOKEN_DIR"] = _TOKEN_DIR
 
+import logging
+
+# Pre-configure the root logger with a stderr handler BEFORE any SDK import.
+# The Webull SDK checks "if logging is already configured" and skips adding
+# its own stdout handler when it finds one. Background threads that fire after
+# our contextlib.redirect_stdout block exits will then log to stderr, not stdout.
+logging.basicConfig(
+    level=logging.WARNING,
+    stream=sys.stderr,
+    format="%(asctime)s %(name)s %(levelname)s %(message)s",
+)
+
 from dotenv import load_dotenv
 load_dotenv(os.path.join(_here, ".env"))
 
@@ -71,8 +83,6 @@ ACCOUNT_ID   = credentials.get("WEBULL_ACCOUNT_ID")
 mcp = FastMCP("Webull")
 
 # ── Build SDK clients once at startup ─────────────────────────────────────────
-# Wrapped in redirect_stdout so the SDK's logger setup (TradeClient prints a log
-# line on first import) cannot write to sys.stdout and corrupt MCP's JSON-RPC.
 with contextlib.redirect_stdout(sys.stderr):
     from webull.core.client import ApiClient as _ApiClient
     from webull.trade.trade_client import TradeClient as _TradeClient
@@ -103,6 +113,16 @@ with contextlib.redirect_stdout(sys.stderr):
 
     _trade_client = _TradeClient(_api)
     _data_client  = _DataClient(_api)
+
+    # After SDK init, redirect any stdout-bound logging handlers to stderr.
+    # Catches cases where the SDK ignored basicConfig and added its own handler.
+    for _lname, _lobj in list(logging.Logger.manager.loggerDict.items()):
+        if not isinstance(_lobj, logging.Logger):
+            continue
+        for _h in list(_lobj.handlers):
+            if isinstance(_h, logging.StreamHandler):
+                if getattr(_h, "stream", None) in (sys.stdout, sys.__stdout__):
+                    _h.stream = sys.stderr
 
 
 def _quiet(fn):
