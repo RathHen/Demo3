@@ -71,39 +71,38 @@ ACCOUNT_ID   = credentials.get("WEBULL_ACCOUNT_ID")
 mcp = FastMCP("Webull")
 
 # ── Build SDK clients once at startup ─────────────────────────────────────────
-# Creating a fresh ApiClient on every tool call risks the constructor writing a
-# new Pending token on top of the valid cached one. One shared client reads the
-# token once and reuses it for the lifetime of the server process.
-from webull.core.client import ApiClient as _ApiClient
-from webull.trade.trade_client import TradeClient as _TradeClient
-from webull.data.data_client import DataClient as _DataClient
+# Wrapped in redirect_stdout so the SDK's logger setup (TradeClient prints a log
+# line on first import) cannot write to sys.stdout and corrupt MCP's JSON-RPC.
+with contextlib.redirect_stdout(sys.stderr):
+    from webull.core.client import ApiClient as _ApiClient
+    from webull.trade.trade_client import TradeClient as _TradeClient
+    from webull.data.data_client import DataClient as _DataClient
 
-_api = _ApiClient(
-    APP_KEY, APP_SECRET, REGION_ID,
-    token_check_duration_seconds=1,
-    token_check_interval_seconds=1,
-)
-try:
-    _api.set_token_dir(_TOKEN_DIR)
-except Exception:
-    pass
+    _api = _ApiClient(
+        APP_KEY, APP_SECRET, REGION_ID,
+        token_check_duration_seconds=1,
+        token_check_interval_seconds=1,
+    )
+    try:
+        _api.set_token_dir(_TOKEN_DIR)
+    except Exception:
+        pass
 
-# Read the cached token ourselves and inject it directly so the SDK doesn't need
-# to re-discover it via file-reading logic that may silently look in the wrong place.
-_token_file = os.path.join(_TOKEN_DIR, "token.txt")
-try:
-    with open(_token_file) as _f:
-        _token_value = _f.read().strip().splitlines()[0].strip()
-    if _token_value:
-        _api.set_token(_token_value)
-except Exception:
-    pass
+    # Read the cached token and inject it directly — bypasses SDK file-reading.
+    _token_file = os.path.join(_TOKEN_DIR, "token.txt")
+    try:
+        with open(_token_file) as _f:
+            _token_value = _f.read().strip().splitlines()[0].strip()
+        if _token_value:
+            _api.set_token(_token_value)
+    except Exception:
+        pass
 
-if API_ENDPOINT:
-    _api.add_endpoint(REGION_ID, API_ENDPOINT)
+    if API_ENDPOINT:
+        _api.add_endpoint(REGION_ID, API_ENDPOINT)
 
-_trade_client = _TradeClient(_api)
-_data_client  = _DataClient(_api)
+    _trade_client = _TradeClient(_api)
+    _data_client  = _DataClient(_api)
 
 
 def _quiet(fn):
