@@ -2,6 +2,7 @@
 Writes the Webull MCP server entry into Claude Desktop's config file.
 Run via setup_claude.bat, or directly: python setup_claude.py
 """
+import glob
 import json
 import os
 import shutil
@@ -10,7 +11,31 @@ import sys
 here = os.path.dirname(os.path.abspath(__file__))
 server_path = os.path.join(here, "mcp_server.py")
 
-config_dir  = os.path.join(os.environ["APPDATA"], "Claude")
+
+def _find_config_dir():
+    """
+    Locate Claude Desktop's config directory. The Microsoft Store build
+    sandboxes it under LocalAppData\\Packages\\Claude_*; the standalone
+    installer uses AppData\\Roaming\\Claude.
+    """
+    candidates = []
+    localappdata = os.environ.get("LOCALAPPDATA", "")
+    if localappdata:
+        candidates += glob.glob(os.path.join(
+            localappdata, "Packages", "Claude_*", "LocalCache", "Roaming", "Claude"
+        ))
+    appdata = os.environ.get("APPDATA", "")
+    if appdata:
+        candidates.append(os.path.join(appdata, "Claude"))
+
+    # Prefer a directory that already exists; otherwise fall back to the first.
+    for d in candidates:
+        if os.path.isdir(d):
+            return d
+    return candidates[0] if candidates else os.path.join(appdata, "Claude")
+
+
+config_dir  = _find_config_dir()
 config_file = os.path.join(config_dir, "claude_desktop_config.json")
 
 if not os.path.exists(server_path):
