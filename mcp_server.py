@@ -1,3 +1,5 @@
+import contextlib
+import functools
 import json
 import os
 import sys
@@ -33,6 +35,20 @@ API_ENDPOINT = credentials.get("WEBULL_API_ENDPOINT")
 ACCOUNT_ID = credentials.get("WEBULL_ACCOUNT_ID")
 
 mcp = FastMCP("Webull")
+
+
+def _quiet(fn):
+    """
+    Run the wrapped tool with stdout redirected to stderr. The MCP stdio
+    transport uses stdout for JSON-RPC, so any stray print or SDK log line on
+    stdout would corrupt the protocol. Because the Webull SDK is imported lazily
+    inside the tools, running here also binds its logging handlers to stderr.
+    """
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        with contextlib.redirect_stdout(sys.stderr):
+            return fn(*args, **kwargs)
+    return wrapper
 
 
 def _api_client():
@@ -74,6 +90,7 @@ def _call_order_method(tc, names: list[str], account_id: str):
 # ─── Tools ────────────────────────────────────────────────────────────────────
 
 @mcp.tool()
+@_quiet
 def get_account_balance() -> str:
     """
     Return the current account balance: net liquidation value, buying power,
@@ -86,6 +103,7 @@ def get_account_balance() -> str:
 
 
 @mcp.tool()
+@_quiet
 def get_positions() -> str:
     """
     Return all current portfolio positions with symbol, quantity, average cost,
@@ -99,6 +117,7 @@ def get_positions() -> str:
 
 
 @mcp.tool()
+@_quiet
 def get_orders(order_type: str = "history") -> str:
     """
     Return orders from the account.
@@ -124,6 +143,7 @@ def get_orders(order_type: str = "history") -> str:
 
 
 @mcp.tool()
+@_quiet
 def get_market_quote(symbol: str, category: str = "US_STOCK") -> str:
     """
     Return a real-time market snapshot for any ticker: last price, change,
@@ -143,6 +163,7 @@ def get_market_quote(symbol: str, category: str = "US_STOCK") -> str:
 
 
 @mcp.tool()
+@_quiet
 def get_price_history(
     symbol: str,
     timespan: str = "D1",
@@ -168,6 +189,7 @@ def get_price_history(
 
 
 @mcp.tool()
+@_quiet
 def get_instrument_info(symbol: str, category: str = "US_STOCK") -> str:
     """
     Return instrument details: company name, sector, industry, exchange,
@@ -185,6 +207,7 @@ def get_instrument_info(symbol: str, category: str = "US_STOCK") -> str:
 
 
 @mcp.tool()
+@_quiet
 def get_accounts() -> str:
     """
     List all Webull accounts linked to these API credentials.
