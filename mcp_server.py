@@ -87,6 +87,18 @@ try:
     _api.set_token_dir(_TOKEN_DIR)
 except Exception:
     pass
+
+# Read the cached token ourselves and inject it directly so the SDK doesn't need
+# to re-discover it via file-reading logic that may silently look in the wrong place.
+_token_file = os.path.join(_TOKEN_DIR, "token.txt")
+try:
+    with open(_token_file) as _f:
+        _token_value = _f.read().strip().splitlines()[0].strip()
+    if _token_value:
+        _api.set_token(_token_value)
+except Exception:
+    pass
+
 if API_ENDPOINT:
     _api.add_endpoint(REGION_ID, API_ENDPOINT)
 

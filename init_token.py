@@ -85,7 +85,6 @@ try:
         token_check_duration_seconds=300,
         token_check_interval_seconds=5,
     )
-    # Pin the token cache to the same absolute folder the MCP server reads.
     try:
         client.set_token_dir(_TOKEN_DIR)
     except Exception:
