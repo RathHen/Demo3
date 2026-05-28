@@ -5,18 +5,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import credentials
+
 app = Flask(__name__)
 
-APP_KEY = os.getenv("WEBULL_APP_KEY", "")
-APP_SECRET = os.getenv("WEBULL_APP_SECRET", "")
-REGION_ID = os.getenv("WEBULL_REGION_ID", "us")
-API_ENDPOINT = os.getenv("WEBULL_API_ENDPOINT", "")
-DEFAULT_ACCOUNT_ID = os.getenv("WEBULL_ACCOUNT_ID", "")
+APP_KEY = credentials.get("WEBULL_APP_KEY")
+APP_SECRET = credentials.get("WEBULL_APP_SECRET")
+REGION_ID = credentials.get("WEBULL_REGION_ID", "us")
+API_ENDPOINT = credentials.get("WEBULL_API_ENDPOINT")
+DEFAULT_ACCOUNT_ID = credentials.get("WEBULL_ACCOUNT_ID")
 
 # Dashboard login. When DASHBOARD_PASSWORD is set, every request must supply
 # matching HTTP Basic credentials. Leave it unset only for trusted local use.
-DASHBOARD_USER = os.getenv("DASHBOARD_USER", "admin")
-DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "")
+DASHBOARD_USER = credentials.get("DASHBOARD_USER", "admin")
+DASHBOARD_PASSWORD = credentials.get("DASHBOARD_PASSWORD")
 
 
 @app.before_request

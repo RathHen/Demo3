@@ -1,20 +1,22 @@
 import json
 import os
+import sys
+
+# Resolve paths relative to this script so Claude Desktop can launch from anywhere.
+_here = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _here)
 
 from dotenv import load_dotenv
-
-# Load .env from the same directory as this script so it works regardless
-# of which directory Claude Desktop launches from.
-_here = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(_here, ".env"))
 
+import credentials
 from mcp.server.fastmcp import FastMCP
 
-APP_KEY = os.getenv("WEBULL_APP_KEY", "")
-APP_SECRET = os.getenv("WEBULL_APP_SECRET", "")
-REGION_ID = os.getenv("WEBULL_REGION_ID", "us")
-API_ENDPOINT = os.getenv("WEBULL_API_ENDPOINT", "")
-ACCOUNT_ID = os.getenv("WEBULL_ACCOUNT_ID", "")
+APP_KEY = credentials.get("WEBULL_APP_KEY")
+APP_SECRET = credentials.get("WEBULL_APP_SECRET")
+REGION_ID = credentials.get("WEBULL_REGION_ID", "us")
+API_ENDPOINT = credentials.get("WEBULL_API_ENDPOINT")
+ACCOUNT_ID = credentials.get("WEBULL_ACCOUNT_ID")
 
 mcp = FastMCP("Webull")
 
