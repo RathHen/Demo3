@@ -1,5 +1,6 @@
 import os
-from flask import Flask, render_template, jsonify, request
+import secrets
+from flask import Flask, render_template, jsonify, request, Response
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,6 +12,27 @@ APP_SECRET = os.getenv("WEBULL_APP_SECRET", "")
 REGION_ID = os.getenv("WEBULL_REGION_ID", "us")
 API_ENDPOINT = os.getenv("WEBULL_API_ENDPOINT", "")
 DEFAULT_ACCOUNT_ID = os.getenv("WEBULL_ACCOUNT_ID", "")
+
+# Dashboard login. When DASHBOARD_PASSWORD is set, every request must supply
+# matching HTTP Basic credentials. Leave it unset only for trusted local use.
+DASHBOARD_USER = os.getenv("DASHBOARD_USER", "admin")
+DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "")
+
+
+@app.before_request
+def _require_login():
+    if not DASHBOARD_PASSWORD:
+        return None
+    auth = request.authorization
+    if not auth or not (
+        secrets.compare_digest(auth.username or "", DASHBOARD_USER)
+        and secrets.compare_digest(auth.password or "", DASHBOARD_PASSWORD)
+    ):
+        return Response(
+            "Authentication required.", 401,
+            {"WWW-Authenticate": 'Basic realm="Webull Dashboard"'},
+        )
+    return None
 
 
 def _api_client():
@@ -183,4 +205,9 @@ def get_instrument(symbol):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    port = int(os.getenv("PORT", "5000"))
+    debug = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+    if not DASHBOARD_PASSWORD:
+        print("\n  WARNING: DASHBOARD_PASSWORD is not set — the dashboard has NO login.")
+        print("  Do NOT expose it through a tunnel until you set one in .env.\n")
+    app.run(debug=debug, host="0.0.0.0", port=port)
