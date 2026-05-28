@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Webull Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    body { background: #0d1117; color: #e6edf3; min-height: 100vh; }
+    .navbar { background: #161b22 !important; border-bottom: 1px solid #30363d; }
+    .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; }
+    .card-header { background: #1c2128; border-bottom: 1px solid #30363d; font-weight: 600; font-size: 0.85rem; letter-spacing: 0.05em; text-transform: uppercase; color: #8b949e; }
+    .table { color: #e6edf3; }
+    .table thead th { border-color: #30363d; color: #8b949e; font-size: 0.78rem; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; }
+    .table tbody td { border-color: #21262d; font-size: 0.9rem; }
+    .table tbody tr:hover td { background: #1c2128; }
+    .nav-tabs { border-bottom: 1px solid #30363d; }
+    .nav-tabs .nav-link { color: #8b949e; border: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 0.6rem 1rem; }
+    .nav-tabs .nav-link:hover { color: #e6edf3; border-bottom-color: #30363d; background: none; }
+    .nav-tabs .nav-link.active { color: #58a6ff; border-bottom-color: #58a6ff; background: none; }
+    .stat-card { text-align: center; padding: 1.25rem; }
+    .stat-card .stat-label { font-size: 0.75rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.35rem; }
+    .stat-card .stat-value { font-size: 1.6rem; font-weight: 700; line-height: 1; }
+    .stat-card .stat-change { font-size: 0.82rem; margin-top: 0.3rem; }
+    .positive { color: #3fb950; }
+    .negative { color: #f85149; }
+    .neutral { color: #8b949e; }
+    .badge-equity { background: #1f6feb22; color: #58a6ff; border: 1px solid #1f6feb; }
+    .badge-option { background: #388bfd22; color: #79c0ff; border: 1px solid #388bfd; }
+    .badge-crypto { background: #f7851922; color: #ffa657; border: 1px solid #f78519; }
+    .badge-status-open { background: #1f6feb22; color: #58a6ff; border: 1px solid #1f6feb; }
+    .badge-status-filled { background: #3fb95022; color: #3fb950; border: 1px solid #3fb950; }
+    .badge-status-cancelled { background: #30363d; color: #8b949e; border: 1px solid #30363d; }
+    .badge-buy { background: #3fb95022; color: #3fb950; }
+    .badge-sell { background: #f8514922; color: #f85149; }
+    .search-input { background: #0d1117; border: 1px solid #30363d; color: #e6edf3; border-radius: 6px; }
+    .search-input:focus { background: #0d1117; border-color: #58a6ff; color: #e6edf3; box-shadow: 0 0 0 3px #58a6ff22; }
+    .btn-primary { background: #238636; border-color: #238636; }
+    .btn-primary:hover { background: #2ea043; border-color: #2ea043; }
+    .btn-outline-secondary { color: #8b949e; border-color: #30363d; }
+    .btn-outline-secondary:hover { background: #30363d; color: #e6edf3; border-color: #30363d; }
+    .account-select { background: #0d1117; border: 1px solid #30363d; color: #e6edf3; border-radius: 6px; font-size: 0.85rem; }
+    .account-select:focus { border-color: #58a6ff; box-shadow: none; }
+    .quote-symbol { font-size: 1.8rem; font-weight: 700; }
+    .quote-price { font-size: 2.5rem; font-weight: 700; }
+    .quote-change { font-size: 1rem; }
+    .spinner-border-sm { width: 1rem; height: 1rem; }
+    .empty-state { padding: 3rem; text-align: center; color: #8b949e; }
+    .empty-state i { font-size: 2.5rem; display: block; margin-bottom: 0.75rem; opacity: 0.5; }
+    #chart-container { position: relative; height: 280px; }
+    .alert-dark { background: #1c2128; border: 1px solid #30363d; color: #8b949e; }
+    .timespan-btn { font-size: 0.75rem; padding: 0.2rem 0.55rem; }
+    .timespan-btn.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+    .raw-json { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 1rem; font-size: 0.78rem; color: #8b949e; max-height: 300px; overflow-y: auto; font-family: monospace; white-space: pre-wrap; }
+    .refresh-btn { font-size: 0.8rem; }
+    .pnl-bar { height: 4px; border-radius: 2px; margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-dark">
+  <div class="container-fluid px-4">
+    <span class="navbar-brand fw-bold" style="font-size:1.1rem;">
+      <i class="bi bi-graph-up-arrow text-success me-2"></i>Webull Dashboard
+    </span>
+    <div class="d-flex align-items-center gap-3">
+      <div id="account-selector-wrap" class="d-none">
+        <select id="account-select" class="form-select account-select" style="min-width:200px;">
+          <option value="">Select account...</option>
+        </select>
+      </div>
+      <button class="btn btn-sm btn-outline-secondary refresh-btn" id="refresh-btn" onclick="refreshAll()">
+        <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+      </button>
+      <span id="status-dot" class="badge" style="font-size:0.7rem;"></span>
+    </div>
+  </div>
+</nav>
+
+<!-- Credentials warning -->
+<div id="creds-warning" class="container-fluid px-4 mt-3 d-none">
+  <div class="alert alert-dark d-flex align-items-start gap-2">
+    <i class="bi bi-exclamation-triangle text-warning mt-1"></i>
+    <div>
+      <strong>Credentials not configured.</strong> Copy <code>.env.example</code> to <code>.env</code> and fill in your Webull API credentials, then restart the server.
+      <div class="mt-1" style="font-size:0.82rem;">
+        Required: <code>WEBULL_APP_KEY</code>, <code>WEBULL_APP_SECRET</code>, <code>WEBULL_REGION_ID</code> (us/hk), <code>WEBULL_ACCOUNT_ID</code>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Main Content -->
+<div class="container-fluid px-4 mt-3">
+
+  <!-- Balance Summary Cards -->
+  <div id="balance-cards" class="row g-3 mb-3"></div>
+
+  <!-- Tabs -->
+  <ul class="nav nav-tabs mb-3" id="main-tabs">
+    <li class="nav-item"><a class="nav-link active" href="#" data-tab="holdings" onclick="switchTab('holdings',this)"><i class="bi bi-pie-chart me-1"></i>Holdings</a></li>
+    <li class="nav-item"><a class="nav-link" href="#" data-tab="orders" onclick="switchTab('orders',this)"><i class="bi bi-list-ul me-1"></i>Orders</a></li>
+    <li class="nav-item"><a class="nav-link" href="#" data-tab="market" onclick="switchTab('market',this)"><i class="bi bi-bar-chart-line me-1"></i>Market Data</a></li>
+    <li class="nav-item"><a class="nav-link" href="#" data-tab="account" onclick="switchTab('account',this)"><i class="bi bi-person-circle me-1"></i>Account Info</a></li>
+  </ul>
+
+  <!-- Holdings Tab -->
+  <div id="tab-holdings">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-pie-chart me-2"></i>Portfolio Positions</span>
+        <button class="btn btn-sm btn-outline-secondary" onclick="loadPositions()"><i class="bi bi-arrow-clockwise"></i></button>
+      </div>
+      <div class="card-body p-0">
+        <div id="holdings-content"><div class="empty-state"><i class="bi bi-hourglass-split"></i>Loading positions...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Orders Tab -->
+  <div id="tab-orders" class="d-none">
+    <div class="card">
+      <div class="card-header">
+        <ul class="nav nav-tabs card-header-tabs" style="border:none;">
+          <li class="nav-item"><a class="nav-link active" href="#" data-order-tab="history" onclick="switchOrderTab('history',this)">History</a></li>
+          <li class="nav-item"><a class="nav-link" href="#" data-order-tab="open" onclick="switchOrderTab('open',this)">Open Orders</a></li>
+          <li class="nav-item"><a class="nav-link" href="#" data-order-tab="today" onclick="switchOrderTab('today',this)">Today</a></li>
+        </ul>
+      </div>
+      <div class="card-body p-0">
+        <div id="orders-content"><div class="empty-state"><i class="bi bi-hourglass-split"></i>Loading orders...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Market Data Tab -->
+  <div id="tab-market" class="d-none">
+    <div class="row g-3">
+      <!-- Search -->
+      <div class="col-12">
+        <div class="card">
+          <div class="card-body">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-3">
+                <label class="form-label small text-secondary">Symbol</label>
+                <input type="text" id="market-symbol" class="form-control search-input" placeholder="e.g. AAPL, TSLA" value="AAPL" style="text-transform:uppercase;">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small text-secondary">Category</label>
+                <select id="market-category" class="form-select account-select">
+                  <option value="US_STOCK">US Stock</option>
+                  <option value="US_OPTION">US Option</option>
+                  <option value="US_FUTURES">US Futures</option>
+                  <option value="US_CRYPTO">Crypto</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small text-secondary">Chart Timespan</label>
+                <select id="market-timespan" class="form-select account-select">
+                  <option value="M1">1 Min</option>
+                  <option value="M5">5 Min</option>
+                  <option value="M15">15 Min</option>
+                  <option value="M30">30 Min</option>
+                  <option value="H1">1 Hour</option>
+                  <option value="D1" selected>Daily</option>
+                  <option value="W1">Weekly</option>
+                </select>
+              </div>
+              <div class="col-auto">
+                <button class="btn btn-primary" onclick="loadMarketData()"><i class="bi bi-search me-1"></i>Lookup</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quote Card -->
+      <div class="col-md-4">
+        <div class="card h-100">
+          <div class="card-header"><i class="bi bi-lightning-charge me-2"></i>Snapshot</div>
+          <div class="card-body" id="quote-card">
+            <div class="empty-state" style="padding:2rem;"><i class="bi bi-graph-up"></i>Enter a symbol above</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <div class="col-md-8">
+        <div class="card h-100">
+          <div class="card-header"><i class="bi bi-bar-chart-line me-2"></i>Price History</div>
+          <div class="card-body">
+            <div id="chart-container">
+              <canvas id="price-chart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Instrument Info -->
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header"><i class="bi bi-info-circle me-2"></i>Instrument Details</div>
+          <div class="card-body p-0">
+            <div id="instrument-content"><div class="empty-state" style="padding:1.5rem;"><i class="bi bi-file-text"></i>No data</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Account Tab -->
+  <div id="tab-account" class="d-none">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header"><i class="bi bi-person-circle me-2"></i>Account Profile</div>
+          <div class="card-body p-0">
+            <div id="profile-content"><div class="empty-state"><i class="bi bi-hourglass-split"></i>Loading...</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header"><i class="bi bi-wallet2 me-2"></i>Balance Details (Raw)</div>
+          <div class="card-body p-0">
+            <div id="balance-raw-content"><div class="empty-state"><i class="bi bi-hourglass-split"></i>Loading...</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let currentAccountId = "";
+let priceChart = null;
+let activeTab = "holdings";
+let activeOrderTab = "history";
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+async function init() {
+  const cfg = await api("/api/config");
+  if (!cfg.has_credentials) {
+    document.getElementById("creds-warning").classList.remove("d-none");
+    setStatus("No credentials", "bg-danger");
+    return;
+  }
+
+  currentAccountId = cfg.default_account_id;
+
+  // Load account list for the selector
+  await loadAccounts(cfg.default_account_id);
+
+  setStatus("Connected", "bg-success");
+  await refreshAll();
+}
+
+async function loadAccounts(defaultId) {
+  const res = await api("/api/accounts");
+  const sel = document.getElementById("account-select");
+  sel.innerHTML = '<option value="">Select account...</option>';
+
+  if (res.success && res.data) {
+    const accounts = extractArray(res.data);
+    accounts.forEach(a => {
+      const id = a.account_id || a.accountId || a.id || JSON.stringify(a);
+      const label = a.account_type || a.accountType || a.type || id;
+      const opt = new Option(`${id} (${label})`, id);
+      sel.appendChild(opt);
+    });
+    if (accounts.length > 0 && !currentAccountId) {
+      const firstId = accounts[0].account_id || accounts[0].accountId || accounts[0].id;
+      if (firstId) currentAccountId = firstId;
+    }
+    if (currentAccountId) sel.value = currentAccountId;
+  } else if (defaultId) {
+    sel.appendChild(new Option(defaultId, defaultId));
+    sel.value = defaultId;
+  }
+
+  document.getElementById("account-selector-wrap").classList.remove("d-none");
+  sel.onchange = () => {
+    currentAccountId = sel.value;
+    refreshAll();
+  };
+}
+
+async function refreshAll() {
+  if (!currentAccountId) return;
+  loadBalance();
+  if (activeTab === "holdings") loadPositions();
+  else if (activeTab === "orders") loadOrders(activeOrderTab);
+  else if (activeTab === "account") loadAccountInfo();
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+function switchTab(tab, el) {
+  event.preventDefault();
+  activeTab = tab;
+  ["holdings","orders","market","account"].forEach(t => {
+    document.getElementById(`tab-${t}`).classList.toggle("d-none", t !== tab);
+  });
+  document.querySelectorAll("#main-tabs .nav-link").forEach(a => a.classList.remove("active"));
+  el.classList.add("active");
+
+  if (tab === "orders") loadOrders(activeOrderTab);
+  else if (tab === "account") loadAccountInfo();
+}
+
+function switchOrderTab(type, el) {
+  event.preventDefault();
+  activeOrderTab = type;
+  document.querySelectorAll("[data-order-tab]").forEach(a => a.classList.remove("active"));
+  el.classList.add("active");
+  loadOrders(type);
+}
+
+// ─── Data Loaders ─────────────────────────────────────────────────────────────
+async function loadBalance() {
+  const res = await api(`/api/account/${currentAccountId}/balance`);
+  renderBalanceCards(res);
+}
+
+async function loadPositions() {
+  const el = document.getElementById("holdings-content");
+  el.innerHTML = spinner("Loading positions...");
+  const res = await api(`/api/account/${currentAccountId}/positions`);
+  if (!res.success) { el.innerHTML = errorBox(res.error); return; }
+  const rows = extractArray(res.data);
+  if (!rows.length) { el.innerHTML = emptyState("bi-pie-chart", "No positions found"); return; }
+  el.innerHTML = renderPositionsTable(rows);
+}
+
+async function loadOrders(type) {
+  const el = document.getElementById("orders-content");
+  el.innerHTML = spinner("Loading orders...");
+  const res = await api(`/api/account/${currentAccountId}/orders?type=${type}`);
+  if (!res.success) { el.innerHTML = errorBox(res.error); return; }
+  const rows = extractArray(res.data);
+  if (!rows.length) { el.innerHTML = emptyState("bi-list-ul", "No orders found"); return; }
+  el.innerHTML = renderOrdersTable(rows);
+}
+
+async function loadAccountInfo() {
+  const profileEl = document.getElementById("profile-content");
+  const balanceEl = document.getElementById("balance-raw-content");
+  profileEl.innerHTML = spinner();
+  balanceEl.innerHTML = spinner();
+
+  const [profileRes, balanceRes] = await Promise.all([
+    api(`/api/account/${currentAccountId}/profile`),
+    api(`/api/account/${currentAccountId}/balance`),
+  ]);
+
+  profileEl.innerHTML = profileRes.success
+    ? renderKeyValueTable(flattenObj(profileRes.data))
+    : errorBox(profileRes.error);
+
+  balanceEl.innerHTML = balanceRes.success
+    ? renderKeyValueTable(flattenObj(balanceRes.data))
+    : errorBox(balanceRes.error);
+}
+
+async function loadMarketData() {
+  const symbol = document.getElementById("market-symbol").value.trim().toUpperCase();
+  const category = document.getElementById("market-category").value;
+  const timespan = document.getElementById("market-timespan").value;
+  if (!symbol) return;
+
+  document.getElementById("quote-card").innerHTML = spinner("Fetching quote...");
+  document.getElementById("instrument-content").innerHTML = spinner();
+
+  const [quoteRes, histRes, instrRes] = await Promise.all([
+    api(`/api/market/quote/${symbol}?category=${category}`),
+    api(`/api/market/history/${symbol}?category=${category}&timespan=${timespan}`),
+    api(`/api/market/instrument/${symbol}?category=${category}`),
+  ]);
+
+  renderQuote(quoteRes, symbol);
+  renderChart(histRes, symbol, timespan);
+  renderInstrument(instrRes);
+}
+
+// ─── Renderers ────────────────────────────────────────────────────────────────
+function renderBalanceCards(res) {
+  const el = document.getElementById("balance-cards");
+  if (!res.success) { el.innerHTML = `<div class="col-12">${errorBox(res.error)}</div>`; return; }
+  const d = flattenObj(res.data);
+
+  const fields = [
+    { keys: ["net_liquidation_value","netLiquidationValue","net_liquidation","netLiquidation"], label: "Net Liquidation", icon: "bi-bank" },
+    { keys: ["buying_power","buyingPower","day_buying_power","dayBuyingPower"], label: "Buying Power", icon: "bi-lightning" },
+    { keys: ["cash_balance","cashBalance","total_cash","totalCash"], label: "Cash Balance", icon: "bi-cash-stack" },
+    { keys: ["unrealized_profit_loss","unrealizedProfitLoss","day_profit_loss","dayProfitLoss","unrealized_pnl","unrealizedPnl"], label: "Unrealized P&L", icon: "bi-graph-up-arrow" },
+  ];
+
+  const cards = fields.map(f => {
+    const val = findField(d, f.keys);
+    const num = parseFloat(val);
+    const color = isNaN(num) ? "neutral" : (num >= 0 ? "positive" : "negative");
+    const display = isNaN(num) ? (val || "—") : fmtMoney(num);
+    return `<div class="col-6 col-md-3">
+      <div class="card stat-card">
+        <div class="stat-label"><i class="bi ${f.icon} me-1"></i>${f.label}</div>
+        <div class="stat-value ${color}">${display}</div>
+      </div>
+    </div>`;
+  });
+  el.innerHTML = cards.join("");
+}
+
+function renderPositionsTable(rows) {
+  const COLS = [
+    { keys: ["symbol"], label: "Symbol" },
+    { keys: ["instrument_type","instrumentType","type"], label: "Type" },
+    { keys: ["quantity","qty"], label: "Qty" },
+    { keys: ["cost_price","costPrice","avg_cost","avgCost","average_cost_price","averageCostPrice"], label: "Avg Cost" },
+    { keys: ["last_price","lastPrice","mark_price","markPrice","close_price","closePrice"], label: "Last Price" },
+    { keys: ["market_value","marketValue"], label: "Market Value" },
+    { keys: ["unrealized_profit_loss","unrealizedProfitLoss","unrealized_pnl","unrealizedPnl","profit_loss","profitLoss"], label: "Unrealized P&L" },
+    { keys: ["unrealized_profit_loss_rate","unrealizedProfitLossRate","pnl_rate","pnlRate"], label: "P&L %" },
+  ];
+
+  const headers = COLS.map(c => `<th>${c.label}</th>`).join("");
+
+  const rowsHtml = rows.map(r => {
+    const flat = flattenObj(r);
+    const cells = COLS.map(c => {
+      const raw = findField(flat, c.keys);
+      if (c.label === "Symbol") return `<td><strong>${raw || "—"}</strong></td>`;
+      if (c.label === "Type") return `<td><span class="badge ${typeBadge(raw)}">${raw || "—"}</span></td>`;
+      if (c.label.includes("P&L %")) {
+        const pct = parseFloat(raw);
+        const cls = isNaN(pct) ? "neutral" : (pct >= 0 ? "positive" : "negative");
+        return `<td class="${cls}">${isNaN(pct) ? (raw || "—") : fmtPct(pct)}</td>`;
+      }
+      if (c.label.includes("P&L") || c.label.includes("Value") || c.label.includes("Cost") || c.label.includes("Price")) {
+        const num = parseFloat(raw);
+        const cls = c.label.includes("P&L") ? (isNaN(num) ? "neutral" : (num >= 0 ? "positive" : "negative")) : "";
+        return `<td class="${cls}">${isNaN(num) ? (raw || "—") : fmtMoney(num)}</td>`;
+      }
+      return `<td>${raw !== undefined && raw !== null ? raw : "—"}</td>`;
+    }).join("");
+    return `<tr>${cells}</tr>`;
+  }).join("");
+
+  return `<div class="table-responsive"><table class="table table-sm mb-0">
+    <thead><tr>${headers}</tr></thead>
+    <tbody>${rowsHtml}</tbody>
+  </table></div>`;
+}
+
+function renderOrdersTable(rows) {
+  const COLS = [
+    { keys: ["create_time","createTime","placed_time","placedTime","order_time","orderTime"], label: "Time" },
+    { keys: ["symbol"], label: "Symbol" },
+    { keys: ["side","order_side","orderSide"], label: "Side" },
+    { keys: ["order_type","orderType","type"], label: "Type" },
+    { keys: ["quantity","qty","order_qty","orderQty"], label: "Qty" },
+    { keys: ["limit_price","limitPrice","price"], label: "Limit Price" },
+    { keys: ["filled_quantity","filledQuantity","filled_qty","filledQty"], label: "Filled" },
+    { keys: ["avg_fill_price","avgFillPrice","fill_price","fillPrice","avg_price","avgPrice"], label: "Fill Price" },
+    { keys: ["status","order_status","orderStatus"], label: "Status" },
+  ];
+
+  const headers = COLS.map(c => `<th>${c.label}</th>`).join("");
+  const rowsHtml = rows.map(r => {
+    const flat = flattenObj(r);
+    const cells = COLS.map(c => {
+      const raw = findField(flat, c.keys);
+      if (c.label === "Symbol") return `<td><strong>${raw || "—"}</strong></td>`;
+      if (c.label === "Side") {
+        const s = (raw || "").toUpperCase();
+        return `<td><span class="badge ${s === "BUY" ? "badge-buy" : s === "SELL" ? "badge-sell" : ""}">${raw || "—"}</span></td>`;
+      }
+      if (c.label === "Status") {
+        const s = (raw || "").toLowerCase();
+        const cls = s.includes("open") || s.includes("pending") ? "badge-status-open"
+          : s.includes("fill") ? "badge-status-filled"
+          : s.includes("cancel") ? "badge-status-cancelled" : "";
+        return `<td><span class="badge ${cls}">${raw || "—"}</span></td>`;
+      }
+      if (c.label.includes("Price")) {
+        const num = parseFloat(raw);
+        return `<td>${isNaN(num) ? (raw || "—") : fmtMoney(num)}</td>`;
+      }
+      if (c.label === "Time" && raw) {
+        return `<td style="white-space:nowrap;font-size:0.8rem;">${fmtDate(raw)}</td>`;
+      }
+      return `<td>${raw !== undefined && raw !== null ? raw : "—"}</td>`;
+    }).join("");
+    return `<tr>${cells}</tr>`;
+  }).join("");
+
+  return `<div class="table-responsive"><table class="table table-sm mb-0">
+    <thead><tr>${headers}</tr></thead>
+    <tbody>${rowsHtml}</tbody>
+  </table></div>`;
+}
+
+function renderQuote(res, symbol) {
+  const el = document.getElementById("quote-card");
+  if (!res.success) { el.innerHTML = errorBox(res.error); return; }
+
+  const d = flattenObj(res.data);
+  const price = findField(d, ["last_price","lastPrice","close_price","closePrice","price","mark_price","markPrice"]);
+  const change = findField(d, ["change","price_change","priceChange","change_price","changePrice"]);
+  const changePct = findField(d, ["change_ratio","changeRatio","change_pct","changePct","percent_change","percentChange"]);
+  const open = findField(d, ["open_price","openPrice","open"]);
+  const high = findField(d, ["high_price","highPrice","high"]);
+  const low = findField(d, ["low_price","lowPrice","low"]);
+  const vol = findField(d, ["volume","trading_volume","tradingVolume"]);
+
+  const num = parseFloat(change);
+  const pctNum = parseFloat(changePct);
+  const cls = isNaN(num) ? "neutral" : (num >= 0 ? "positive" : "negative");
+  const arrow = isNaN(num) ? "" : (num >= 0 ? "↑" : "↓");
+
+  el.innerHTML = `
+    <div class="mb-1">
+      <span class="quote-symbol">${symbol}</span>
+    </div>
+    <div class="quote-price ${cls}">${price ? fmtMoney(parseFloat(price)) : "—"}</div>
+    <div class="quote-change ${cls} mb-3">
+      ${arrow} ${isNaN(num) ? "—" : fmtMoney(Math.abs(num))} (${isNaN(pctNum) ? "—" : fmtPct(pctNum)})
+    </div>
+    <table class="table table-sm mb-0" style="font-size:0.82rem;">
+      <tr><td class="text-secondary">Open</td><td>${open ? fmtMoney(parseFloat(open)) : "—"}</td></tr>
+      <tr><td class="text-secondary">High</td><td>${high ? fmtMoney(parseFloat(high)) : "—"}</td></tr>
+      <tr><td class="text-secondary">Low</td><td>${low ? fmtMoney(parseFloat(low)) : "—"}</td></tr>
+      <tr><td class="text-secondary">Volume</td><td>${vol ? fmtNumber(parseFloat(vol)) : "—"}</td></tr>
+    </table>`;
+}
+
+function renderChart(res, symbol, timespan) {
+  if (priceChart) { priceChart.destroy(); priceChart = null; }
+  const ctx = document.getElementById("price-chart").getContext("2d");
+
+  if (!res.success) {
+    document.getElementById("chart-container").innerHTML =
+      `<div class="empty-state"><i class="bi bi-graph-up"></i>${res.error}</div>`;
+    return;
+  }
+
+  const bars = extractArray(res.data);
+  if (!bars.length) {
+    document.getElementById("chart-container").innerHTML =
+      `<div class="empty-state"><i class="bi bi-graph-up"></i>No historical data</div>`;
+    return;
+  }
+
+  // Restore canvas if needed
+  const container = document.getElementById("chart-container");
+  if (!container.querySelector("canvas")) {
+    container.innerHTML = '<canvas id="price-chart"></canvas>';
+  }
+
+  const labels = bars.map(b => {
+    const t = b.time || b.timestamp || b.trade_time || b.tradeTime || b.date || "";
+    return t ? new Date(t).toLocaleDateString() : "";
+  });
+  const closes = bars.map(b => parseFloat(b.close_price || b.closePrice || b.close || b.last || 0));
+  const opens = bars.map(b => parseFloat(b.open_price || b.openPrice || b.open || 0));
+
+  const up = closes[closes.length - 1] >= closes[0];
+  const lineColor = up ? "#3fb950" : "#f85149";
+  const fillColor = up ? "#3fb95022" : "#f8514922";
+
+  priceChart = new Chart(document.getElementById("price-chart").getContext("2d"), {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: `${symbol} Close`,
+        data: closes,
+        borderColor: lineColor,
+        backgroundColor: fillColor,
+        borderWidth: 1.5,
+        fill: true,
+        tension: 0.2,
+        pointRadius: bars.length > 100 ? 0 : 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { mode: "index", intersect: false }
+      },
+      scales: {
+        x: {
+          ticks: { color: "#8b949e", maxTicksLimit: 8, font: { size: 10 } },
+          grid: { color: "#21262d" }
+        },
+        y: {
+          ticks: { color: "#8b949e", font: { size: 10 }, callback: v => "$" + v.toFixed(2) },
+          grid: { color: "#21262d" }
+        }
+      }
+    }
+  });
+}
+
+function renderInstrument(res) {
+  const el = document.getElementById("instrument-content");
+  if (!res.success) { el.innerHTML = `<div class="p-3">${errorBox(res.error)}</div>`; return; }
+  const d = flattenObj(res.data);
+  el.innerHTML = renderKeyValueTable(d);
+}
+
+function renderKeyValueTable(obj) {
+  const entries = Object.entries(obj);
+  if (!entries.length) return emptyState("bi-file-text", "No data");
+  const rows = entries.map(([k, v]) =>
+    `<tr><td class="text-secondary" style="font-size:0.8rem;white-space:nowrap;width:40%;">${camelToLabel(k)}</td>
+     <td style="font-size:0.85rem;word-break:break-all;">${v !== null && v !== undefined ? v : "—"}</td></tr>`
+  ).join("");
+  return `<div class="table-responsive"><table class="table table-sm mb-0">${rows}</table></div>`;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+async function api(url) {
+  try {
+    const r = await fetch(url);
+    return await r.json();
+  } catch (e) {
+    return { success: false, error: String(e) };
+  }
+}
+
+function extractArray(data) {
+  if (Array.isArray(data)) return data;
+  if (!data || typeof data !== "object") return [];
+  // Search for nested arrays
+  for (const k of ["data","items","list","positions","orders","accounts","result"]) {
+    if (Array.isArray(data[k])) return data[k];
+  }
+  // If the object has items, return as single-element array
+  return [data];
+}
+
+function flattenObj(obj, prefix = "", result = {}) {
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) {
+    if (prefix) result[prefix] = obj;
+    return result;
+  }
+  for (const [k, v] of Object.entries(obj)) {
+    const key = prefix ? `${prefix}.${k}` : k;
+    if (v && typeof v === "object" && !Array.isArray(v)) {
+      flattenObj(v, key, result);
+    } else {
+      result[key] = Array.isArray(v) ? JSON.stringify(v) : v;
+    }
+  }
+  return result;
+}
+
+function findField(obj, keys) {
+  for (const k of keys) {
+    if (obj[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k];
+    // Also search nested dotted keys
+    const match = Object.keys(obj).find(ok => ok === k || ok.endsWith(`.${k}`));
+    if (match && obj[match] !== undefined && obj[match] !== null) return obj[match];
+  }
+  return undefined;
+}
+
+function fmtMoney(n) {
+  if (isNaN(n)) return "—";
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+}
+function fmtPct(n) {
+  if (isNaN(n)) return "—";
+  const pct = Math.abs(n) > 1 ? n : n * 100; // Handle both decimal and pct forms
+  return pct.toFixed(2) + "%";
+}
+function fmtNumber(n) {
+  if (isNaN(n)) return "—";
+  return new Intl.NumberFormat("en-US", { notation: "compact" }).format(n);
+}
+function fmtDate(val) {
+  try {
+    return new Date(typeof val === "number" ? val : val).toLocaleString();
+  } catch { return val; }
+}
+function typeBadge(t) {
+  const s = (t || "").toUpperCase();
+  if (s.includes("OPTION")) return "badge badge-option";
+  if (s.includes("CRYPTO")) return "badge badge-crypto";
+  return "badge badge-equity";
+}
+function camelToLabel(s) {
+  return s.replace(/([A-Z])/g, " $1").replace(/_/g, " ").replace(/\./g, " › ").replace(/^\w/, c => c.toUpperCase()).trim();
+}
+function spinner(msg = "") {
+  return `<div class="empty-state"><div class="spinner-border spinner-border-sm text-secondary mb-2"></div><br>${msg}</div>`;
+}
+function errorBox(msg) {
+  return `<div class="alert alert-dark m-3" style="font-size:0.85rem;"><i class="bi bi-exclamation-circle text-danger me-2"></i>${msg}</div>`;
+}
+function emptyState(icon, msg) {
+  return `<div class="empty-state"><i class="bi ${icon}"></i>${msg}</div>`;
+}
+function setStatus(msg, cls) {
+  const el = document.getElementById("status-dot");
+  el.textContent = msg;
+  el.className = `badge ${cls}`;
+}
+
+document.getElementById("market-symbol").addEventListener("keydown", e => {
+  if (e.key === "Enter") loadMarketData();
+  document.getElementById("market-symbol").value = document.getElementById("market-symbol").value.toUpperCase();
+});
+
+// Start
+init();
+</script>
+</body>
+</html>

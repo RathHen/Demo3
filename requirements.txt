@@ -1,0 +1,3 @@
+Flask>=3.0.0
+python-dotenv>=1.0.0
+webull-openapi-python-sdk>=2.0.0
