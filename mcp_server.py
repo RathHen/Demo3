@@ -6,6 +6,20 @@ import sys
 _here = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _here)
 
+# Claude Desktop launches this process with the working directory set to a
+# protected system folder (e.g. C:\Windows\System32). The Webull SDK writes a
+# log file and caches its 2FA token relative to the working directory, so move
+# to a writable, persistent runtime folder before any SDK calls run.
+_runtime_dir = os.path.join(
+    os.environ.get("LOCALAPPDATA") or os.environ.get("HOME") or _here,
+    "WebullDashboard",
+)
+try:
+    os.makedirs(_runtime_dir, exist_ok=True)
+    os.chdir(_runtime_dir)
+except OSError:
+    pass
+
 from dotenv import load_dotenv
 load_dotenv(os.path.join(_here, ".env"))
 
