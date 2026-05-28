@@ -62,57 +62,45 @@ load_dotenv(os.path.join(_here, ".env"))
 import credentials
 from mcp.server.fastmcp import FastMCP
 
-APP_KEY = credentials.get("WEBULL_APP_KEY")
-APP_SECRET = credentials.get("WEBULL_APP_SECRET")
-REGION_ID = credentials.get("WEBULL_REGION_ID", "us")
+APP_KEY      = credentials.get("WEBULL_APP_KEY")
+APP_SECRET   = credentials.get("WEBULL_APP_SECRET")
+REGION_ID    = credentials.get("WEBULL_REGION_ID", "us")
 API_ENDPOINT = credentials.get("WEBULL_API_ENDPOINT")
-ACCOUNT_ID = credentials.get("WEBULL_ACCOUNT_ID")
+ACCOUNT_ID   = credentials.get("WEBULL_ACCOUNT_ID")
 
 mcp = FastMCP("Webull")
 
+# ── Build SDK clients once at startup ─────────────────────────────────────────
+# Creating a fresh ApiClient on every tool call risks the constructor writing a
+# new Pending token on top of the valid cached one. One shared client reads the
+# token once and reuses it for the lifetime of the server process.
+from webull.core.client import ApiClient as _ApiClient
+from webull.trade.trade_client import TradeClient as _TradeClient
+from webull.data.data_client import DataClient as _DataClient
+
+_api = _ApiClient(
+    APP_KEY, APP_SECRET, REGION_ID,
+    token_check_duration_seconds=1,
+    token_check_interval_seconds=1,
+)
+try:
+    _api.set_token_dir(_TOKEN_DIR)
+except Exception:
+    pass
+if API_ENDPOINT:
+    _api.add_endpoint(REGION_ID, API_ENDPOINT)
+
+_trade_client = _TradeClient(_api)
+_data_client  = _DataClient(_api)
+
 
 def _quiet(fn):
-    """
-    Run the wrapped tool with stdout redirected to stderr. The MCP stdio
-    transport uses stdout for JSON-RPC, so any stray print or SDK log line on
-    stdout would corrupt the protocol. Because the Webull SDK is imported lazily
-    inside the tools, running here also binds its logging handlers to stderr.
-    """
+    """Redirect stdout to stderr while the tool runs — keeps MCP's JSON-RPC clean."""
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
         with contextlib.redirect_stdout(sys.stderr):
             return fn(*args, **kwargs)
     return wrapper
-
-
-def _api_client():
-    from webull.core.client import ApiClient
-    # Keep the 2FA-wait window short (1s) so the server fails fast inside Claude
-    # Desktop instead of hanging — the token must already be initialised via
-    # init_token.bat. The SDK requires this to be a positive integer.
-    client = ApiClient(
-        APP_KEY, APP_SECRET, REGION_ID,
-        token_check_duration_seconds=1,
-        token_check_interval_seconds=1,
-    )
-    # Read the cached token from the same absolute folder init_token.py wrote to.
-    try:
-        client.set_token_dir(_TOKEN_DIR)
-    except Exception:
-        pass
-    if API_ENDPOINT:
-        client.add_endpoint(REGION_ID, API_ENDPOINT)
-    return client
-
-
-def _trade():
-    from webull.trade.trade_client import TradeClient
-    return TradeClient(_api_client())
-
-
-def _data():
-    from webull.data.data_client import DataClient
-    return DataClient(_api_client())
 
 
 def _fmt(res) -> str:
@@ -156,7 +144,7 @@ def get_account_balance() -> str:
     cash balance, and any unrealized P&L summary.
     """
     try:
-        return _run(lambda: _fmt(_trade().account_v2.get_account_balance(ACCOUNT_ID)))
+        return _run(lambda: _fmt(_trade_client.account_v2.get_account_balance(ACCOUNT_ID)))
     except Exception as e:
         return json.dumps({"error": str(e)})
 
@@ -170,7 +158,7 @@ def get_positions() -> str:
     Use this to understand what the user owns right now.
     """
     try:
-        return _run(lambda: _fmt(_trade().account_v2.get_account_position(ACCOUNT_ID)))
+        return _run(lambda: _fmt(_trade_client.account_v2.get_account_position(ACCOUNT_ID)))
     except Exception as e:
         return json.dumps({"error": str(e)})
 
@@ -186,7 +174,7 @@ def get_orders(order_type: str = "history") -> str:
                     orders, "today" for today's activity only.
     """
     try:
-        tc = _trade()
+        tc = _trade_client
         names = {
             "open":    ["list_open_orders",    "get_open_orders"],
             "today":   ["list_today_orders",   "get_today_orders"],
@@ -215,7 +203,7 @@ def get_market_quote(symbol: str, category: str = "US_STOCK") -> str:
         category: "US_STOCK" (default), "US_OPTION", "US_FUTURES", "US_CRYPTO"
     """
     try:
-        return _run(lambda: _fmt(_data().market_data.get_snapshot(
+        return _run(lambda: _fmt(_data_client.market_data.get_snapshot(
             symbol.upper(), category, extend_hour_required=True
         )))
     except Exception as e:
@@ -242,7 +230,7 @@ def get_price_history(
         from webull.data.common.timespan import Timespan
         valid = {t.name for t in Timespan}
         ts = timespan if timespan in valid else "D1"
-        return _run(lambda: _fmt(_data().market_data.get_history_bar(symbol.upper(), category, ts)))
+        return _run(lambda: _fmt(_data_client.market_data.get_history_bar(symbol.upper(), category, ts)))
     except Exception as e:
         return json.dumps({"error": str(e)})
 
@@ -259,7 +247,7 @@ def get_instrument_info(symbol: str, category: str = "US_STOCK") -> str:
         category: "US_STOCK" (default), "US_OPTION", "US_FUTURES", "US_CRYPTO"
     """
     try:
-        return _run(lambda: _fmt(_data().instrument.get_instrument(symbol.upper(), category)))
+        return _run(lambda: _fmt(_data_client.instrument.get_instrument(symbol.upper(), category)))
     except Exception as e:
         return json.dumps({"error": str(e)})
 
@@ -272,7 +260,7 @@ def get_accounts() -> str:
     Use this if WEBULL_ACCOUNT_ID is not set and you need to find your account ID.
     """
     try:
-        return _run(lambda: _fmt(_trade().account_v2.get_account_list()))
+        return _run(lambda: _fmt(_trade_client.account_v2.get_account_list()))
     except Exception as e:
         return json.dumps({"error": str(e)})
 
