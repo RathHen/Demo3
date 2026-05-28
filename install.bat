@@ -17,13 +17,12 @@ py -3.13 -m pip install Flask python-dotenv "mcp>=1.0.0" "keyring>=25.0.0"
 if errorlevel 1 goto :fail
 
 echo.
-echo [4/5] Installing runtime libraries (modern grpcio with a prebuilt wheel)...
-py -3.13 -m pip install grpcio protobuf paho-mqtt jmespath cachetools requests six urllib3 cryptography
-if errorlevel 1 goto :fail
+echo [4/5] Removing old-generation Webull packages if present (wrong import namespace)...
+py -3.13 -m pip uninstall -y webull-python-sdk-core webull-python-sdk-mdata webull-python-sdk-trade webull-python-sdk-quotes-core webull-python-sdk-trade-events-core
 
 echo.
-echo [5/5] Installing Webull SDK packages without their broken grpcio pin...
-py -3.13 -m pip install --no-deps webull-python-sdk-core webull-python-sdk-quotes-core webull-python-sdk-mdata webull-python-sdk-trade-events-core webull-python-sdk-trade
+echo [5/5] Installing the consolidated Webull OpenAPI SDK (forces a prebuilt grpcio wheel)...
+py -3.13 -m pip install --only-binary=grpcio "webull-openapi-python-sdk>=2.0.0"
 if errorlevel 1 goto :fail
 
 echo.
@@ -35,7 +34,7 @@ echo Verifying the Webull SDK imports...
 py -3.13 -c "from webull.core.client import ApiClient; from webull.trade.trade_client import TradeClient; from webull.data.data_client import DataClient; print('Webull SDK imports OK')"
 if errorlevel 1 (
   echo.
-  echo WARNING: imports failed - tell Claude the error above.
+  echo WARNING: imports failed - copy the error above and tell Claude.
   pause
   exit /b 1
 )
