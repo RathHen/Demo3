@@ -5,6 +5,29 @@ import json
 import os
 import sys
 
+# ── Protect the MCP stdio channel from stray output ───────────────────────────
+# The MCP stdio transport speaks JSON-RPC over stdout. Any other byte on stdout
+# corrupts the protocol ("non-whitespace after JSON" / "EOF while parsing").
+# Python-level redirect_stdout is not enough: grpcio (used by the Webull SDK) is
+# C code that writes straight to file descriptor 1, bypassing sys.stdout.
+#
+# Fix: keep a private duplicate of the real stdout and bind Python's sys.stdout
+# to it (this is the only thing MCP writes JSON-RPC to). Then repoint OS fd 1 at
+# stderr, so any C-level write (grpcio, native logging) lands on stderr and can
+# no longer corrupt the protocol. Tool bodies further redirect Python-level
+# stdout to stderr via the _quiet decorator while SDK calls run.
+import io
+
+_real_stdout_fd = os.dup(1)                         # private handle to real stdout
+os.dup2(2, 1)                                       # fd 1 -> stderr (C-level safety)
+# Rebuild a normal stdout (TextIOWrapper over a BufferedWriter) on the saved fd,
+# so code that touches sys.stdout.buffer (the MCP transport does) behaves as usual.
+sys.stdout = io.TextIOWrapper(
+    io.BufferedWriter(io.FileIO(_real_stdout_fd, "w")),
+    encoding="utf-8",
+    line_buffering=True,
+)                                                   # MCP writes JSON-RPC here
+
 # Resolve paths relative to this script so Claude Desktop can launch from anywhere.
 _here = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _here)
