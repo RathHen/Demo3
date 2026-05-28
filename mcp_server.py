@@ -46,6 +46,16 @@ try:
 except OSError:
     pass
 
+# Pin the token cache to one absolute folder so this server and init_token.py
+# always read/write the SAME token.txt, regardless of the process working
+# directory (Claude Desktop may launch us from System32 where chdir can fail).
+_TOKEN_DIR = os.path.join(_runtime_dir, "conf")
+try:
+    os.makedirs(_TOKEN_DIR, exist_ok=True)
+except OSError:
+    pass
+os.environ["WEBULL_OPENAPI_TOKEN_DIR"] = _TOKEN_DIR
+
 from dotenv import load_dotenv
 load_dotenv(os.path.join(_here, ".env"))
 
@@ -85,6 +95,11 @@ def _api_client():
         token_check_duration_seconds=1,
         token_check_interval_seconds=1,
     )
+    # Read the cached token from the same absolute folder init_token.py wrote to.
+    try:
+        client.set_token_dir(_TOKEN_DIR)
+    except Exception:
+        pass
     if API_ENDPOINT:
         client.add_endpoint(REGION_ID, API_ENDPOINT)
     return client

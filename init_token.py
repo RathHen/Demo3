@@ -22,6 +22,12 @@ _runtime_dir = os.path.join(
 os.makedirs(_runtime_dir, exist_ok=True)
 os.chdir(_runtime_dir)
 
+# Pin the token cache to one absolute folder so the MCP server reads the SAME
+# token.txt this script writes (mcp_server.py points at this identical path).
+_TOKEN_DIR = os.path.join(_runtime_dir, "conf")
+os.makedirs(_TOKEN_DIR, exist_ok=True)
+os.environ["WEBULL_OPENAPI_TOKEN_DIR"] = _TOKEN_DIR
+
 from dotenv import load_dotenv
 load_dotenv(os.path.join(_here, ".env"))
 
@@ -44,7 +50,7 @@ if not APP_KEY or not APP_SECRET:
     print("Run  store_credentials.bat  first, then re-run this.")
     sys.exit(1)
 
-token_path = os.path.join(_runtime_dir, "conf", "token.txt")
+token_path = os.path.join(_TOKEN_DIR, "token.txt")
 print(f"  App Key   : {APP_KEY[:8]}...")
 print(f"  Region    : {REGION_ID}")
 print(f"  Env       : {ENVIRONMENT}")
@@ -52,10 +58,10 @@ print(f"  Token file: {token_path}")
 print()
 
 # Delete any stale cached token so the SDK always starts a fresh flow.
-stale = os.path.join(_runtime_dir, "conf", "token.txt")
-if os.path.exists(stale):
-    os.remove(stale)
-    print("Removed old cached token.")
+for stale in (token_path, os.path.join(_runtime_dir, "conf", "token.txt")):
+    if os.path.exists(stale):
+        os.remove(stale)
+        print(f"Removed old cached token: {stale}")
 
 print("Starting token request. The SDK will now connect to Webull...")
 print()
@@ -79,6 +85,11 @@ try:
         token_check_duration_seconds=300,
         token_check_interval_seconds=5,
     )
+    # Pin the token cache to the same absolute folder the MCP server reads.
+    try:
+        client.set_token_dir(_TOKEN_DIR)
+    except Exception:
+        pass
     if API_ENDPOINT:
         client.add_endpoint(REGION_ID, API_ENDPOINT)
 
