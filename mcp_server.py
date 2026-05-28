@@ -77,11 +77,13 @@ def _quiet(fn):
 
 def _api_client():
     from webull.core.client import ApiClient
-    # token_check_duration_seconds=0 tells the SDK not to block waiting for 2FA
-    # inside Claude Desktop — the token must already be initialised via init_token.bat.
+    # Keep the 2FA-wait window short (1s) so the server fails fast inside Claude
+    # Desktop instead of hanging — the token must already be initialised via
+    # init_token.bat. The SDK requires this to be a positive integer.
     client = ApiClient(
         APP_KEY, APP_SECRET, REGION_ID,
-        token_check_duration_seconds=0,
+        token_check_duration_seconds=1,
+        token_check_interval_seconds=1,
     )
     if API_ENDPOINT:
         client.add_endpoint(REGION_ID, API_ENDPOINT)
