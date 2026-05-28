@@ -1,3 +1,4 @@
+import concurrent.futures
 import contextlib
 import functools
 import json
@@ -87,6 +88,19 @@ def _call_order_method(tc, names: list[str], account_id: str):
     return None
 
 
+_TIMEOUT_SECS = 20
+
+
+def _run(fn):
+    """Run fn() with a hard timeout; return JSON error string on timeout."""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(fn)
+        try:
+            return future.result(timeout=_TIMEOUT_SECS)
+        except concurrent.futures.TimeoutError:
+            return json.dumps({"error": f"Webull API timed out after {_TIMEOUT_SECS}s"})
+
+
 # ─── Tools ────────────────────────────────────────────────────────────────────
 
 @mcp.tool()
@@ -97,7 +111,7 @@ def get_account_balance() -> str:
     cash balance, and any unrealized P&L summary.
     """
     try:
-        return _fmt(_trade().account_v2.get_account_balance(ACCOUNT_ID))
+        return _run(lambda: _fmt(_trade().account_v2.get_account_balance(ACCOUNT_ID)))
     except Exception as e:
         return json.dumps({"error": str(e)})
 
@@ -111,7 +125,7 @@ def get_positions() -> str:
     Use this to understand what the user owns right now.
     """
     try:
-        return _fmt(_trade().account_v2.get_account_position(ACCOUNT_ID))
+        return _run(lambda: _fmt(_trade().account_v2.get_account_position(ACCOUNT_ID)))
     except Exception as e:
         return json.dumps({"error": str(e)})
 
@@ -134,10 +148,12 @@ def get_orders(order_type: str = "history") -> str:
             "history": ["get_order_history",   "list_history_orders", "list_all_orders"],
         }.get(order_type, ["get_order_history"])
 
-        res = _call_order_method(tc, names, ACCOUNT_ID)
-        if res is not None:
-            return _fmt(res)
-        return json.dumps({"error": f"Order type '{order_type}' not supported by this SDK version"})
+        def _call():
+            r = _call_order_method(tc, names, ACCOUNT_ID)
+            if r is not None:
+                return _fmt(r)
+            return json.dumps({"error": f"Order type '{order_type}' not supported by this SDK version"})
+        return _run(_call)
     except Exception as e:
         return json.dumps({"error": str(e)})
 
@@ -154,10 +170,9 @@ def get_market_quote(symbol: str, category: str = "US_STOCK") -> str:
         category: "US_STOCK" (default), "US_OPTION", "US_FUTURES", "US_CRYPTO"
     """
     try:
-        res = _data().market_data.get_snapshot(
+        return _run(lambda: _fmt(_data().market_data.get_snapshot(
             symbol.upper(), category, extend_hour_required=True
-        )
-        return _fmt(res)
+        )))
     except Exception as e:
         return json.dumps({"error": str(e)})
 
@@ -182,8 +197,7 @@ def get_price_history(
         from webull.data.common.timespan import Timespan
         valid = {t.name for t in Timespan}
         ts = timespan if timespan in valid else "D1"
-        res = _data().market_data.get_history_bar(symbol.upper(), category, ts)
-        return _fmt(res)
+        return _run(lambda: _fmt(_data().market_data.get_history_bar(symbol.upper(), category, ts)))
     except Exception as e:
         return json.dumps({"error": str(e)})
 
@@ -200,8 +214,7 @@ def get_instrument_info(symbol: str, category: str = "US_STOCK") -> str:
         category: "US_STOCK" (default), "US_OPTION", "US_FUTURES", "US_CRYPTO"
     """
     try:
-        res = _data().instrument.get_instrument(symbol.upper(), category)
-        return _fmt(res)
+        return _run(lambda: _fmt(_data().instrument.get_instrument(symbol.upper(), category)))
     except Exception as e:
         return json.dumps({"error": str(e)})
 
@@ -214,7 +227,7 @@ def get_accounts() -> str:
     Use this if WEBULL_ACCOUNT_ID is not set and you need to find your account ID.
     """
     try:
-        return _fmt(_trade().account_v2.get_account_list())
+        return _run(lambda: _fmt(_trade().account_v2.get_account_list()))
     except Exception as e:
         return json.dumps({"error": str(e)})
 
