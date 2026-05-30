@@ -296,5 +296,149 @@ def get_accounts() -> str:
         return json.dumps({"error": str(e)})
 
 
+# ─── Options (yfinance, ~15-min delayed) ──────────────────────────────────────
+# The Webull OpenAPI SDK exposes only single-contract lookups, not full chains.
+# For strategy building we use yfinance: free, no auth, full chains with
+# bid/ask/last/volume/open-interest/implied-vol. Data is ~15 minutes delayed.
+
+def _underlying_price(ticker) -> float | None:
+    """Best-effort current price of the underlying, across yfinance versions."""
+    try:
+        p = ticker.fast_info.get("last_price") or ticker.fast_info.get("lastPrice")
+        if p:
+            return float(p)
+    except Exception:
+        pass
+    try:
+        hist = ticker.history(period="1d")
+        if not hist.empty:
+            return float(hist["Close"].iloc[-1])
+    except Exception:
+        pass
+    return None
+
+
+@mcp.tool()
+@_quiet
+def get_option_expirations(symbol: str) -> str:
+    """
+    List the available option expiration dates for a stock (yfinance, ~15-min
+    delayed). Use this first to pick an expiration for get_option_chain.
+
+    Args:
+        symbol: Underlying ticker, e.g. "AAPL", "SPY"
+    """
+    def _call():
+        import yfinance as yf
+        t = yf.Ticker(symbol.upper())
+        exps = list(t.options or [])
+        if not exps:
+            return json.dumps({"error": f"No options found for {symbol.upper()}"})
+        return json.dumps({"symbol": symbol.upper(), "expirations": exps}, indent=2)
+    try:
+        return _run(_call)
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
+@_quiet
+def get_option_chain(
+    symbol: str,
+    expiration: str = "",
+    option_type: str = "both",
+    strike_count: int = 10,
+) -> str:
+    """
+    Return an option chain for a stock (yfinance, ~15-min delayed): strike,
+    bid, ask, last price, volume, open interest, and implied volatility for
+    each contract. Ideal for building spreads and multi-leg strategies.
+
+    Args:
+        symbol:       Underlying ticker, e.g. "AAPL"
+        expiration:   Expiry date "YYYY-MM-DD". If empty, uses the nearest one.
+        option_type:  "calls", "puts", or "both" (default)
+        strike_count: How many strikes nearest the current price to return per
+                      side (default 10). Use 0 for the entire chain.
+    """
+    def _call():
+        import yfinance as yf
+        t = yf.Ticker(symbol.upper())
+        exps = list(t.options or [])
+        if not exps:
+            return json.dumps({"error": f"No options found for {symbol.upper()}"})
+        exp = expiration if expiration in exps else exps[0]
+
+        chain = t.option_chain(exp)
+        spot = _underlying_price(t)
+
+        cols = ["strike", "bid", "ask", "lastPrice", "volume",
+                "openInterest", "impliedVolatility", "inTheMoney"]
+
+        def _rows(df):
+            d = df[[c for c in cols if c in df.columns]].copy()
+            if strike_count and spot is not None and "strike" in d.columns:
+                d["_dist"] = (d["strike"] - spot).abs()
+                d = d.nsmallest(strike_count, "_dist").drop(columns="_dist")
+                d = d.sort_values("strike")
+            return d.fillna(0).to_dict(orient="records")
+
+        out = {"symbol": symbol.upper(), "expiration": exp, "underlying_price": spot}
+        if option_type in ("calls", "both"):
+            out["calls"] = _rows(chain.calls)
+        if option_type in ("puts", "both"):
+            out["puts"] = _rows(chain.puts)
+        return json.dumps(out, indent=2, default=str)
+    try:
+        return _run(_call)
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
+@_quiet
+def get_option_quote(
+    symbol: str,
+    expiration: str,
+    strike: float,
+    option_type: str = "call",
+) -> str:
+    """
+    Return the quote for a single specific option contract (yfinance, ~15-min
+    delayed): bid, ask, last, volume, open interest, implied volatility.
+
+    Args:
+        symbol:      Underlying ticker, e.g. "AAPL"
+        expiration:  Expiry date "YYYY-MM-DD"
+        strike:      Strike price, e.g. 190
+        option_type: "call" or "put"
+    """
+    def _call():
+        import yfinance as yf
+        t = yf.Ticker(symbol.upper())
+        exps = list(t.options or [])
+        if expiration not in exps:
+            return json.dumps({
+                "error": f"Expiration {expiration} not available",
+                "available": exps,
+            })
+        chain = t.option_chain(expiration)
+        df = chain.calls if option_type.lower().startswith("c") else chain.puts
+        match = df[df["strike"] == float(strike)]
+        if match.empty:
+            strikes = sorted(df["strike"].tolist())
+            return json.dumps({
+                "error": f"No {option_type} at strike {strike} for {expiration}",
+                "available_strikes": strikes,
+            }, default=str)
+        rec = match.iloc[0].to_dict()
+        rec["underlying_price"] = _underlying_price(t)
+        return json.dumps(rec, indent=2, default=str)
+    try:
+        return _run(_call)
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
 if __name__ == "__main__":
     mcp.run()

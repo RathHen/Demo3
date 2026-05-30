@@ -12,8 +12,8 @@ py -3.13 -m pip install "setuptools<81"
 if errorlevel 1 goto :fail
 
 echo.
-echo [3/5] Installing Flask, MCP, and keyring...
-py -3.13 -m pip install Flask python-dotenv "mcp>=1.0.0" "keyring>=25.0.0"
+echo [3/5] Installing Flask, MCP, keyring, and yfinance (option chains)...
+py -3.13 -m pip install Flask python-dotenv "mcp>=1.0.0" "keyring>=25.0.0" "yfinance>=0.2.40"
 if errorlevel 1 goto :fail
 
 echo.

@@ -6,3 +6,6 @@ keyring>=25.0.0
 # On Windows + Python 3.13, install via install.bat which forces a prebuilt
 # grpcio wheel. On Python 3.13 the SDK requests a modern grpcio that has wheels.
 webull-openapi-python-sdk>=2.0.0
+
+# Free, ~15-min-delayed option chains and quotes for strategy building.
+yfinance>=0.2.40
