@@ -8,4 +8,4 @@ keyring>=25.0.0
 webull-openapi-python-sdk>=2.0.0
 
 # Free, ~15-min-delayed option chains and quotes for strategy building.
-yfinance>=0.2.40
+schwab-py>=1.4.0

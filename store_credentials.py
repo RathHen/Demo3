@@ -26,12 +26,14 @@ PROMPTS = [
     ("WEBULL_APP_KEY",      "Webull App Key",      False),
     ("WEBULL_APP_SECRET",   "Webull App Secret",   True),
     ("DASHBOARD_PASSWORD",  "Dashboard Password (for tunnel access)", True),
+    ("SCHWAB_APP_KEY",      "Schwab App Key (from developer.schwab.com)", False),
+    ("SCHWAB_APP_SECRET",   "Schwab App Secret",   True),
 ]
 
 print()
-print("Webull Credential Setup")
+print("Brokerage Credential Setup")
 print("Credentials will be stored in Windows Credential Manager (encrypted).")
-print("Press Enter to keep the current value.  Input is hidden for secrets.")
+print("Press Enter to skip or keep the current value.  Input is hidden for secrets.")
 print()
 
 stored = []
@@ -59,6 +61,6 @@ else:
     print("Nothing changed.")
 
 print()
-print("Non-secret config (WEBULL_REGION_ID, WEBULL_ACCOUNT_ID) still comes")
-print("from your .env file — edit that in Notepad for those values.")
+print("Non-secret config (WEBULL_REGION_ID, WEBULL_ACCOUNT_ID, SCHWAB_CALLBACK_URL)")
+print("comes from your .env file — edit that in Notepad for those values.")
 print()

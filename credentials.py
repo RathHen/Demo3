@@ -12,8 +12,11 @@ import os
 _SERVICE = "webull-dashboard"
 
 # Keys stored in Credential Manager (secrets).
-# Non-sensitive config (region, account ID) lives only in .env / env vars.
-_KEYRING_KEYS = ("WEBULL_APP_KEY", "WEBULL_APP_SECRET", "DASHBOARD_PASSWORD")
+# Non-sensitive config (region, account ID, callback URLs) lives only in .env / env vars.
+_KEYRING_KEYS = (
+    "WEBULL_APP_KEY", "WEBULL_APP_SECRET", "DASHBOARD_PASSWORD",
+    "SCHWAB_APP_KEY", "SCHWAB_APP_SECRET",
+)
 
 
 def _from_keyring(key: str) -> str:
