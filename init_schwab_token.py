@@ -27,7 +27,7 @@ import credentials
 
 SCHWAB_APP_KEY    = credentials.get("SCHWAB_APP_KEY")
 SCHWAB_APP_SECRET = credentials.get("SCHWAB_APP_SECRET")
-CALLBACK_URL      = os.environ.get("SCHWAB_CALLBACK_URL", "https://127.0.0.1")
+CALLBACK_URL      = os.environ.get("SCHWAB_CALLBACK_URL", "https://127.0.0.1:8182")
 
 _TOKEN_FILE = os.path.join(_runtime_dir, "schwab_token.json")
 
@@ -71,56 +71,57 @@ if os.path.exists(_TOKEN_FILE):
     print(f"Removed old cached token: {_TOKEN_FILE}")
     print()
 
-try:
-    client = schwab.auth.easy_client(
-        SCHWAB_APP_KEY,
-        SCHWAB_APP_SECRET,
-        CALLBACK_URL,
-        _TOKEN_FILE,
-    )
+if __name__ == "__main__":
+    try:
+        client = schwab.auth.easy_client(
+            SCHWAB_APP_KEY,
+            SCHWAB_APP_SECRET,
+            CALLBACK_URL,
+            _TOKEN_FILE,
+        )
 
-    print()
-    print("Testing Schwab connection (fetching SPY option chain)...")
-    r = client.get_option_chain("SPY", strike_count=1)
-    if r.status_code == 200:
-        data = r.json()
-        if data.get("status") == "SUCCESS":
-            exp_count = len(data.get("callExpDateMap", {}))
-            print()
-            print("SUCCESS! Schwab token saved and verified.")
-            print(f"  Token file    : {_TOKEN_FILE}")
-            print(f"  SPY expirations available: {exp_count}")
-            print()
-            print("Next steps:")
-            print("  1. Fully quit Claude Desktop (right-click tray icon -> Quit)")
-            print("  2. Reopen Claude Desktop")
-            print("  3. Ask Claude about option chains — now powered by Schwab (real-time).")
-            print()
-            print("  Token auto-refreshes. Re-run this script only if it expires (~7 days).")
-            print()
-        else:
-            print(f"Unexpected API status: {data.get('status')}")
-            print(f"Full response: {data}")
-            sys.exit(1)
-    else:
-        print(f"API returned HTTP {r.status_code}: {r.text}")
-        sys.exit(1)
-
-except KeyboardInterrupt:
-    print()
-    print("Cancelled.")
-    sys.exit(0)
-except Exception as e:
-    err = str(e)
-    print()
-    print(f"Error: {err}")
-    print()
-    if "callback" in err.lower() or "redirect" in err.lower():
-        print("Make sure your Schwab developer app has this callback URL registered:")
-        print(f"  {CALLBACK_URL}")
         print()
-        print("Set SCHWAB_CALLBACK_URL in your .env file if you use a different URL.")
-    elif "invalid_client" in err.lower() or "401" in err:
-        print("Authentication failed. Check that your App Key and App Secret are correct.")
-        print("Re-run  store_credentials.bat  to update them.")
-    sys.exit(1)
+        print("Testing Schwab connection (fetching SPY option chain)...")
+        r = client.get_option_chain("SPY", strike_count=1)
+        if r.status_code == 200:
+            data = r.json()
+            if data.get("status") == "SUCCESS":
+                exp_count = len(data.get("callExpDateMap", {}))
+                print()
+                print("SUCCESS! Schwab token saved and verified.")
+                print(f"  Token file    : {_TOKEN_FILE}")
+                print(f"  SPY expirations available: {exp_count}")
+                print()
+                print("Next steps:")
+                print("  1. Fully quit Claude Desktop (right-click tray icon -> Quit)")
+                print("  2. Reopen Claude Desktop")
+                print("  3. Ask Claude about option chains — now powered by Schwab (real-time).")
+                print()
+                print("  Token auto-refreshes. Re-run this script only if it expires (~7 days).")
+                print()
+            else:
+                print(f"Unexpected API status: {data.get('status')}")
+                print(f"Full response: {data}")
+                sys.exit(1)
+        else:
+            print(f"API returned HTTP {r.status_code}: {r.text}")
+            sys.exit(1)
+
+    except KeyboardInterrupt:
+        print()
+        print("Cancelled.")
+        sys.exit(0)
+    except Exception as e:
+        err = str(e)
+        print()
+        print(f"Error: {err}")
+        print()
+        if "callback" in err.lower() or "redirect" in err.lower():
+            print("Make sure your Schwab developer app has this callback URL registered:")
+            print(f"  {CALLBACK_URL}")
+            print()
+            print("Set SCHWAB_CALLBACK_URL in your .env file if you use a different URL.")
+        elif "invalid_client" in err.lower() or "401" in err:
+            print("Authentication failed. Check that your App Key and App Secret are correct.")
+            print("Re-run  store_credentials.bat  to update them.")
+        sys.exit(1)
