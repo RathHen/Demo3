@@ -137,7 +137,13 @@ with contextlib.redirect_stdout(sys.stderr):
         for _h in list(_lobj.handlers):
             if isinstance(_h, logging.StreamHandler):
                 if getattr(_h, "stream", None) in (sys.stdout, sys.__stdout__):
-                    _h.stream = sys.stderr
+                    # Some handlers (e.g. logging._StderrHandler) expose `stream`
+                    # as a read-only property — setting it raises AttributeError.
+                    # Skip those; they already point at stderr anyway.
+                    try:
+                        _h.stream = sys.stderr
+                    except AttributeError:
+                        pass
 
 
 def _quiet(fn):
