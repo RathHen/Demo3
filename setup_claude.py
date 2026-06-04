@@ -1,5 +1,5 @@
 """
-Writes the Webull MCP server entry into Claude Desktop's config file.
+Writes the Brokerage MCP server entry into Claude Desktop's config file.
 Run via setup_claude.bat, or directly: python setup_claude.py
 """
 import glob
@@ -43,7 +43,7 @@ if not os.path.exists(server_path):
     print("Run this from the Demo3 project folder.")
     sys.exit(1)
 
-# Prefer Python 3.13 explicitly — the Webull SDK has pre-built wheels for it.
+# Prefer Python 3.13 explicitly — the Brokerage SDK has pre-built wheels for it.
 # Falls back to whatever python is on PATH if 3.13 isn't found.
 import subprocess
 
@@ -77,7 +77,8 @@ else:
     config = {}
 
 config.setdefault("mcpServers", {})
-config["mcpServers"]["webull"] = {
+config["mcpServers"].pop("webull", None)   # remove old entry if present
+config["mcpServers"]["brokerage"] = {
     "command": python_exe,
     "args": python_prefix_args + [server_path],
 }
@@ -96,6 +97,6 @@ print("Next steps:")
 print("  1. Make sure your .env file has WEBULL_APP_KEY, WEBULL_APP_SECRET,")
 print("     WEBULL_REGION_ID, and WEBULL_ACCOUNT_ID filled in.")
 print("  2. Restart Claude Desktop (fully quit and reopen).")
-print("  3. Look for the hammer icon in Claude Desktop -- Webull tools will be listed.")
+print("  3. Look for the hammer icon in Claude Desktop -- Brokerage tools will be listed.")
 print('  4. Ask Claude: "Show me my current portfolio positions"')
 print()

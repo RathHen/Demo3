@@ -84,7 +84,7 @@ SCHWAB_APP_KEY    = credentials.get("SCHWAB_APP_KEY")
 SCHWAB_APP_SECRET = credentials.get("SCHWAB_APP_SECRET")
 _schwab_token_file = os.path.join(_runtime_dir, "schwab_token.json")
 
-mcp = FastMCP("Webull")
+mcp = FastMCP("Brokerage")
 
 # ── Build SDK clients once at startup ─────────────────────────────────────────
 with contextlib.redirect_stdout(sys.stderr):
